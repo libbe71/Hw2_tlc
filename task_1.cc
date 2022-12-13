@@ -1,6 +1,3 @@
-
-// Team N.54
-
 //------------------------------------
 #include "ns3/applications-module.h"
 #include "ns3/command-line.h"
@@ -23,7 +20,7 @@
 // come indicato da una risposta per email, ad RngRun si deve
 // passare la somma delle matricole dei componenti del gruppo;
 // per questo gruppo il parametro risulta:
-// --RngRun = somma numeri di matricola
+// 1938802 + 1959164 + 1922069 = 5820035    -->     --RngRun=5820035
 //------ WiFi ------------------------
 #include "ns3/mobility-module.h"
 #include "ns3/mobility-helper.h"
@@ -105,7 +102,7 @@ int main(int argc, char* argv[]){
 
     NS_LOG_INFO("Fine creazione topologia di rete");        //STATUS LOG INFO LEVEL
 
-    ///////////////////////////////////////////////////////////////////////////// 
+    ///////////////////////////////////////////////////////////////////////////////
 
     NS_LOG_INFO("Creazione del mobility model");
 
@@ -151,17 +148,16 @@ int main(int argc, char* argv[]){
     NS_LOG_INFO("START");        //STATUS LOG INFO LEVEL
 
     uint32_t UportSrvN0 = 20;       // UDP Echo Server Port n0
-    
     uint32_t pkSize = 512;          // Packet size UDP Client
 
-    //------------------------------------------
-    
+    //--------------------------------------
+
     UdpEchoServerHelper echoServerN0(UportSrvN0);     // UDP Echo Server
     ApplicationContainer srvAppN0 = echoServerN0.Install(allWifiAdHocModNodes.Get(0));     // UDP Echo Server installato su n0
-    srvAppN0.Start(Seconds(0.0));    
-    srvAppN0.Stop(Seconds(10.0));        //Tempo di run del server
+    srvAppN0.Start(Seconds(0.0));
+    srvAppN0.Stop(Seconds(10.0));       //Tempo di run del server
     
-    //------------------------------------------  
+    //--------------------------------------  
 
     UdpEchoClientHelper echoClientN4(adHocModNodesInterfaces.GetAddress(0), UportSrvN0);    // UDP Echo Client verso n0
     echoClientN4.SetAttribute("MaxPackets", UintegerValue(2));
@@ -211,5 +207,90 @@ int main(int argc, char* argv[]){
         phyAdHocMod.EnablePcap("task1-off-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
 
     }
+
+    ///////////////////////////////////////////////////////////////////////////////
+
+    if(useNetAnim){              
+
+        if(useRtsCts){
+
+            AnimationInterface netAnimAdHocMode ("wireless-task1-rts-on.xml");
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(0), "SRV-0"); // Nodo n0 SRV
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(0), 255, 0, 0);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(1), "HOC-1"); // Nodo n1
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(1), 0, 0, 255);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(2), "HOC-2"); // Nodo n2 PCAP
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(2), 0, 0, 255);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(3), "CLI-3"); // Nodo n3 CLI
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(3), 0, 255, 0);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(4), "CLI-4"); // Nodo n4 CLI
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(4), 0, 255, 0);   // R, G, B
+        
+            netAnimAdHocMode.EnablePacketMetadata();    // Packet Metadata
+
+            netAnimAdHocMode.EnableWifiMacCounters(Seconds(0), Seconds(10)); // Tracing MAC
+            netAnimAdHocMode.EnableWifiPhyCounters(Seconds(0), Seconds(10)); // Tracing PHY
+
+            // Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+            Simulator::Stop(Seconds(12.0));
+
+            Simulator::Run();
+            Simulator::Destroy();
+
+            return 0;
+
+        }
+
+        else{
+        
+            AnimationInterface netAnimAdHocMode ("wireless-task1-rts-off.xml");
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(0), "SRV-0"); // Nodo n0 SRV
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(0), 255, 0, 0);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(1), "HOC-1"); // Nodo n1
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(1), 0, 0, 255);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(2), "HOC-2"); // Nodo n2 PCAP
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(2), 0, 0, 255);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(3), "CLI-3"); // Nodo n3 CLI
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(3), 0, 255, 0);   // R, G, B
+
+            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(4), "CLI-4"); // Nodo n4 CLI
+            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(4), 0, 255, 0);   // R, G, B
+        
+            netAnimAdHocMode.EnablePacketMetadata();    // Packet Metadata
+
+            netAnimAdHocMode.EnableWifiMacCounters(Seconds(0), Seconds(10)); // Tracing MAC
+            netAnimAdHocMode.EnableWifiPhyCounters(Seconds(0), Seconds(10)); // Tracing PHY
+
+            // Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+            Simulator::Stop(Seconds(12.0));
+
+            Simulator::Run();
+            Simulator::Destroy();
+
+            return 0;
+        }
     
+    }
+
+    else{
+
+        // Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+        Simulator::Stop(Seconds(12.0));
+
+        Simulator::Run();
+        Simulator::Destroy();
+
+        return 0;
+        
+    }    
+
 }
