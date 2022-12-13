@@ -1,3 +1,4 @@
+
 // Team N.54
 
 //------------------------------------
@@ -144,3 +145,71 @@ int main(int argc, char* argv[]){
     adHocModNodesInterfaces = ipAddAdHocModNodes.Assign(adHocModDevices);   //Assegno il blocco di indirizzi ai devices
 
     NS_LOG_INFO("Fine definizione blocco di indirizzi IP");        //STATUS LOG INFO LEVEL
+
+    ///////////////////////////////////////////////////////////////////////////////
+
+    NS_LOG_INFO("START");        //STATUS LOG INFO LEVEL
+
+    uint32_t UportSrvN0 = 20;       // UDP Echo Server Port n0
+    
+    uint32_t pkSize = 512;          // Packet size UDP Client
+
+    //------------------------------------------
+    
+    UdpEchoServerHelper echoServerN0(UportSrvN0);     // UDP Echo Server
+    ApplicationContainer srvAppN0 = echoServerN0.Install(allWifiAdHocModNodes.Get(0));     // UDP Echo Server installato su n0
+    srvAppN0.Start(Seconds(0.0));    
+    srvAppN0.Stop(Seconds(10.0));        //Tempo di run del server
+    
+    //------------------------------------------  
+
+    UdpEchoClientHelper echoClientN4(adHocModNodesInterfaces.GetAddress(0), UportSrvN0);    // UDP Echo Client verso n0
+    echoClientN4.SetAttribute("MaxPackets", UintegerValue(2));
+    echoClientN4.SetAttribute("Interval", TimeValue(Seconds(1.0)));
+    echoClientN4.SetAttribute("PacketSize", UintegerValue(pkSize));
+
+    ApplicationContainer cltAppN4 = echoClientN4.Install(allWifiAdHocModNodes.Get(4));     // UDP Echo Client installato su n4
+    cltAppN4.Start(Seconds(1.0));
+    cltAppN4.Stop(Seconds(2.5));
+
+    //--------------------------------------  
+
+    UdpEchoClientHelper echoClientN3(adHocModNodesInterfaces.GetAddress(0), UportSrvN0);    // UDP Echo Client verso n0
+    echoClientN3.SetAttribute("MaxPackets", UintegerValue(2));
+    echoClientN3.SetAttribute("Interval", TimeValue(Seconds(2.0)));
+    echoClientN3.SetAttribute("PacketSize", UintegerValue(pkSize));
+
+    ApplicationContainer cltAppN3 = echoClientN3.Install(allWifiAdHocModNodes.Get(3));     // UDP Echo Client installato su n3
+    cltAppN3.Start(Seconds(2.0));
+    cltAppN3.Stop(Seconds(4.5));
+
+    ///////////////////////////////////////////////////////////////////////////////
+
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+
+    ///////////////////////////////////////////////////////////////////////////////
+
+    if(verbose){
+        LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);     //LOG abilitato per UDP SERVER (n0)
+        LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);     //LOG abilitato per UDP CLIENT (n3, n4)
+    }
+
+    // phyAdHocMod.EnablePcap("task1-off-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
+
+    NS_LOG_INFO("END");        //STATUS LOG INFO LEVEL
+
+    ///////////////////////////////////////////////////////////////////////////////
+
+    if(useRtsCts){
+
+        phyAdHocMod.EnablePcap("task1-on-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
+
+    }
+
+    else{
+
+        phyAdHocMod.EnablePcap("task1-off-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
+
+    }
+    
+}
