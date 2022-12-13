@@ -15,12 +15,6 @@
 #include "ns3/string.h"
 #include "ns3/uinteger.h"
 //------ RNG -------------------------
-// #include "rng-seed-manager.h"
-// Il parametro RngRun viene passato da cmd ( --RngRun=<..>)
-// come indicato da una risposta per email, ad RngRun si deve
-// passare la somma delle matricole dei componenti del gruppo;
-// per questo gruppo il parametro risulta:
-// 1938802 + 1959164 + 1922069 = 5820035    -->     --RngRun=5820035
 //------ WiFi ------------------------
 #include "ns3/mobility-module.h"
 #include "ns3/mobility-helper.h"
