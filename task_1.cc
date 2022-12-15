@@ -1,290 +1,197 @@
-//------------------------------------
 #include "ns3/applications-module.h"
-#include "ns3/command-line.h"
-#include "ns3/config.h"
-#include "ns3/gnuplot.h"
-#include "ns3/log.h"
+#include "ns3/basic-energy-source.h"
 #include "ns3/core-module.h"
+#include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/ipv4-address-helper.h"
-#include "ns3/ipv4-global-routing-helper.h"
-#include "ns3/network-module.h"
-#include "ns3/on-off-helper.h"
-#include "ns3/packet-socket-address.h"
-#include "ns3/packet-socket-helper.h"
-#include "ns3/string.h"
-#include "ns3/uinteger.h"
-//------ RNG -------------------------
-//------ WiFi ------------------------
 #include "ns3/mobility-module.h"
-#include "ns3/mobility-helper.h"
-#include "ns3/yans-wifi-channel.h"
-#include "ns3/ssid.h"
-#include "ns3/yans-wifi-helper.h"
-// #include "wifi-phy-standard.h"
-//------ NetAnim ---------------------
 #include "ns3/netanim-module.h"
-//------ Trace -----------------------
-#include "ns3/object.h"
-#include "ns3/uinteger.h"
-#include "ns3/traced-value.h"
-#include "ns3/trace-source-accessor.h"
-//------------------------------------
-
-/*
-// ============================================ Network Topology ============================================
-//
-//                                               __ n0 __
-//                                           __ /        \__                 AD HOC MODE                                     
-//                                          /               \                                               
-//                                       n4                  n1                                              
-//                                         \                 /                                              
-//                                          \               /                                              
-//                                           n3 _________ n2                                                 
-//                                                                                                          
-//                                           192.168.0.1/24                                                            
-//                                                                                                                                                                                                                  
-// ==========================================================================================================
-*/
+#include "ns3/network-module.h"
+#include "ns3/point-to-point-module.h"
+#include "ns3/simple-device-energy-model.h"
+#include "ns3/ssid.h"
+#include "ns3/wifi-radio-energy-model.h"
+#include "ns3/yans-wifi-helper.h"
+// #include presi da ns-3-dev-git/src/netanim/examples/wireless-animation.cc
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("HW2_Task_1_Team_54");      // AD-HOC MODE
+// per distinguere il vostro compito, definire la seguente riga nel file task1.cc dopo l’inclusione dei 
+// moduli e del namespace: 
+NS_LOG_COMPONENT_DEFINE("HW2_Task1_Team_54"); 
 
-int main(int argc, char* argv[]){
 
-    bool useRtsCts = false;  // Forza l'utilizzo dell'handshake RTS/CTS
-    bool verbose = false; // Abilita l'uso dei LOG (SRV e CLT) per UDP application
-    bool useNetAnim = false; // Genera file per l'analisi su NetAnim
+// Task 1: Wireless Local Area Network – Ad-hoc Mode
 
-    CommandLine cmd(__FILE__);
-    cmd.AddValue("useRtsCts", "Force the use of Rts and Cts", useRtsCts);    // Scelta di useRtsCts da CMD
-    cmd.AddValue("verbose", "Enable the use of Logs on SRV and CLI", verbose);    // Scelta di verbose da CMD
-    cmd.AddValue("useNetAnim", "Enable file generation for NetAnim", useNetAnim);    // Scelta di useNetAnim da CMD
+int
+main(int argc, char* argv[]) {
 
+    // simulare una Wireless Local Area Network (WLAN) che opera in modalità Ad-hoc con 5 nodi. 
+    uint32_t nWifi = 5;
+    bool useRtsCts = false;
+    bool verbose = false;
+    bool useNetAnim = false;
+    
+    // o Alla simulazione deve essere possibile passare tre diversi parametri da riga di comando: 
+    //          useRtsCts: booleano (valore di default: false), se vero viene forzato l’utilizzo 
+    //             dell’handshake RTS/CTS da parte della rete. 
+    //          verbose: booleano (valore di default: false), se vero viene abilitato l’uso dei logs 
+    //             per il server e per i clients della UDP Echo Application 
+    //          useNetAnim: booleano (valore di default: false), se è vero vengono generati tutti i 
+    //             file relativi per NetAnim (vedi sopra)
+    CommandLine cmd;
+    cmd.AddValue("useRtsCts", "Enable RTS/CTS", useRtsCts);
+    cmd.AddValue("verbose", "Enable verbose logs", verbose);
+    cmd.AddValue("useNetAnim", "Enable NetAnim", useNetAnim);
     cmd.Parse(argc, argv);
 
-    Time::SetResolution(Time::NS);      //Riferito a NS_LOG_INFO
-
-    ///////////////////////////////////////////////////////////////////////////////
-
-    UintegerValue ctsThreshold = (useRtsCts ? UintegerValue(100) : UintegerValue(2346));                              
-    Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", ctsThreshold);
-
-    ///////////////////////////////////////////////////////////////////////////////
-
-    NS_LOG_INFO("Creazione dei nodi e dei relativi container");        //STATUS LOG INFO LEVEL
-
-    uint32_t nodesNum = 5;      // Numero di nodi totali
-
-    NodeContainer allWifiAdHocModNodes;     // Contenitore di tutti i nodi della rete WiFi AD-HOC
-    allWifiAdHocModNodes.Create(nodesNum);
-
-    YansWifiChannelHelper channelAdHocMod = YansWifiChannelHelper::Default();   // Definizione canale di comunicazione tra i nodi
-    YansWifiPhyHelper phyAdHocMod;   // Definizione physical layer tra i nodi
-    phyAdHocMod.SetChannel(channelAdHocMod.Create());
-
-    WifiMacHelper macAdHocMod; 
-    macAdHocMod.SetType("ns3::AdhocWifiMac");   // Definizione modalità operativa
+    if (verbose) {
+        LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
+        LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
+    }
     
-    WifiHelper wifiAdHocMod;    // Helper per creare ed installare WiFi devices
-    wifiAdHocMod.SetStandard(WifiStandard(WIFI_STANDARD_80211g)); // Definizione di standard da usare, andrà a sovrascrivere i valori di default impostati precedentemente
-    wifiAdHocMod.SetRemoteStationManager("ns3::AarfWifiManager");
+    UintegerValue rtsctsThreshold = UintegerValue(5000);
+    if (useRtsCts) {
+        rtsctsThreshold=UintegerValue(100);
+    }
+                
+    Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", rtsctsThreshold);
 
-    NetDeviceContainer adHocModDevices;      // Contenitore finale con nodi collegati con link
-    adHocModDevices = wifiAdHocMod.Install(phyAdHocMod, macAdHocMod, allWifiAdHocModNodes);
-
-    NS_LOG_INFO("Fine creazione topologia di rete");        //STATUS LOG INFO LEVEL
-
-    ///////////////////////////////////////////////////////////////////////////////
-
-    NS_LOG_INFO("Creazione del mobility model");
-
-    MobilityHelper mobilityAdHocMod;
-
-    mobilityAdHocMod.SetPositionAllocator(
-        "ns3::GridPositionAllocator",       // Allocate positions on a rectangular 2d grid
-        "MinX", DoubleValue(0.0),           // The x coordinate where the grid starts
-        "MinY", DoubleValue(0.0),           // The y coordinate where the grid starts
-        "DeltaX", DoubleValue(5.0),         // The x space between objects
-        "DeltaY", DoubleValue(10.0),        // The y space between objects
-        "GridWidth", UintegerValue(3),      // The number of objects layed out on a line
-        "LayoutType", StringValue("RowFirst")   // The type of layout
-    );
-
-    mobilityAdHocMod.SetMobilityModel(
-        "ns3::RandomWalk2dMobilityModel",
-        "Bounds", RectangleValue(Rectangle(-90, 90, -90, 90))   // xMin, xMax, yMin, yMax
-    );
-
-    mobilityAdHocMod.Install(allWifiAdHocModNodes); 
-
-    NS_LOG_INFO("Fine creazione del mobility model");
-
-    ///////////////////////////////////////////////////////////////////////////////
-
-    NS_LOG_INFO("Creazione del blocco di indirizzi IP per ogni container definito");
-
-    InternetStackHelper allstack;   //InternetStackHelper su tutti i nodi 
-    allstack.Install(allWifiAdHocModNodes);
-
-    //------ IP Address -------------
+   
+    NodeContainer allNodes;
+    allNodes.Create(nWifi);
     
-    Ipv4AddressHelper ipAddAdHocModNodes;      //Definisco blocco di indirizzi
-    ipAddAdHocModNodes.SetBase("192.168.1.0", "255.255.255.0");    //Struttura del blocco di indirizzi
-    Ipv4InterfaceContainer adHocModNodesInterfaces;    //Definisco un container con devices e IP Set
-    adHocModNodesInterfaces = ipAddAdHocModNodes.Assign(adHocModDevices);   //Assegno il blocco di indirizzi ai devices
+    // • Canale: canale wireless di default su ns-3 (YansWifiChannel ?)
+    YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
+    YansWifiPhyHelper phy ;
+    phy.SetChannel(channel.Create());
 
-    NS_LOG_INFO("Fine definizione blocco di indirizzi IP");        //STATUS LOG INFO LEVEL
+    // • Physical Layer: 
+    //     o Parametri di default definiti dall’IEEE 802.11G standard; 
+    //     o Adaptive rate control stabilito dall’algoritmo AARF (default)
+    WifiHelper wifi;
+    wifi.SetStandard(WIFI_STANDARD_80211g);
+    wifi.SetRemoteStationManager("ns3::AarfWifiManager");
 
-    ///////////////////////////////////////////////////////////////////////////////
+    // • Link Layer: 
+    //     o Standard MAC senza nessun controllo sulla Quality of Service; 
+    //     o Ricorda: la rete opera in ad-hoc mode 
+    WifiMacHelper mac;
+    mac.SetType("ns3::AdhocWifiMac","QosSupported",BooleanValue(false));
 
-    NS_LOG_INFO("START");        //STATUS LOG INFO LEVEL
+    // • Network Layer: 
+    //     o Standard IPv4 
+    //     o Address range: 192.168.1.0/24 
+    InternetStackHelper stack;
+    stack.Install(allNodes);
 
-    uint32_t UportSrvN0 = 20;       // UDP Echo Server Port n0
-    uint32_t pkSize = 512;          // Packet size UDP Client
+    NetDeviceContainer devices = wifi.Install(phy, mac, allNodes);
 
-    //--------------------------------------
+    Ipv4AddressHelper address;
+    address.SetBase("192.168.1.0", "255.255.255.0");        
+    Ipv4InterfaceContainer interfaces = address.Assign(devices);
 
-    UdpEchoServerHelper echoServerN0(UportSrvN0);     // UDP Echo Server
-    ApplicationContainer srvAppN0 = echoServerN0.Install(allWifiAdHocModNodes.Get(0));     // UDP Echo Server installato su n0
-    srvAppN0.Start(Seconds(0.0));
-    srvAppN0.Stop(Seconds(10.0));       //Tempo di run del server
-    
-    //--------------------------------------  
-
-    UdpEchoClientHelper echoClientN4(adHocModNodesInterfaces.GetAddress(0), UportSrvN0);    // UDP Echo Client verso n0
-    echoClientN4.SetAttribute("MaxPackets", UintegerValue(2));
-    echoClientN4.SetAttribute("Interval", TimeValue(Seconds(1.0)));
-    echoClientN4.SetAttribute("PacketSize", UintegerValue(pkSize));
-
-    ApplicationContainer cltAppN4 = echoClientN4.Install(allWifiAdHocModNodes.Get(4));     // UDP Echo Client installato su n4
-    cltAppN4.Start(Seconds(1.0));
-    cltAppN4.Stop(Seconds(2.5));
-
-    //--------------------------------------  
-
-    UdpEchoClientHelper echoClientN3(adHocModNodesInterfaces.GetAddress(0), UportSrvN0);    // UDP Echo Client verso n0
-    echoClientN3.SetAttribute("MaxPackets", UintegerValue(2));
-    echoClientN3.SetAttribute("Interval", TimeValue(Seconds(2.0)));
-    echoClientN3.SetAttribute("PacketSize", UintegerValue(pkSize));
-
-    ApplicationContainer cltAppN3 = echoClientN3.Install(allWifiAdHocModNodes.Get(3));     // UDP Echo Client installato su n3
-    cltAppN3.Start(Seconds(2.0));
-    cltAppN3.Stop(Seconds(4.5));
-
-    ///////////////////////////////////////////////////////////////////////////////
-
+    //     o Assumere che ogni nodo si comporta come un router ideale e scambia la sua routing table in background
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    ///////////////////////////////////////////////////////////////////////////////
+    // • Transport Layer: 
+    //     o UDP 
+    // • Application Layer: 
+    //     o UDP Echo Server sul Nodo 0: 
+    //          Porta 20 
+    NS_LOG_INFO("Create UdpEchoServer application on node 0.");
+    uint16_t port = 20;
+    UdpEchoServerHelper server(port);
+    ApplicationContainer serverapp = server.Install(allNodes.Get(0));
+    serverapp.Start(Seconds(0.0));
+    serverapp.Stop(Seconds(7.0));
 
-    if(verbose){
-        LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);     //LOG abilitato per UDP SERVER (n0)
-        LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);     //LOG abilitato per UDP CLIENT (n3, n4)
-    }
+    //     o UDP Echo Client sul Nodo 4 
+    //          Invia 2 pacchetti UDP Echo al server ai tempi 1s e 2s 
+    NS_LOG_INFO("Create UdpEchoClient application on node 4.");
+    UdpEchoClientHelper client1(interfaces.GetAddress(0), port);
+    client1.SetAttribute("MaxPackets", UintegerValue(2));
+    client1.SetAttribute("Interval", TimeValue(Seconds(1.0)));
+    client1.SetAttribute("PacketSize", UintegerValue(512));      // o Packet size: 512 bytes 
+    ApplicationContainer client1app = client1.Install(allNodes.Get(4));
+    client1app.Start(Seconds(1.0));
+    client1app.Stop(Seconds(2.1));        
 
-    // phyAdHocMod.EnablePcap("task1-off-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
+    //     o UDP Echo Client sul Nodo 3 
+    //          Invia 2 pacchetti UDP Echo al server ai tempi 2s e 4s 
+    NS_LOG_INFO("Create UdpEchoClient application on node 3.");
+    UdpEchoClientHelper client2(interfaces.GetAddress(0), port);
+    client2.SetAttribute("MaxPackets", UintegerValue(2));
+    client2.SetAttribute("Interval", TimeValue(Seconds(2.0)));
+    client2.SetAttribute("PacketSize", UintegerValue(512)); 
+    ApplicationContainer client2app = client2.Install(allNodes.Get(3));
+    client2app.Start(Seconds(2.0));
+    client2app.Stop(Seconds(4.1));
 
-    NS_LOG_INFO("END");        //STATUS LOG INFO LEVEL
+    // I nodi si muovono seguendo come modello di mobilità il 2D Random Walk in un’area rettangolare 
+    // definita dal suo angolo in basso a sinistra (coordinate x= -90 m, y= -90 m) 
+    // e dal suo angolo in alto a destra (x = 90 m, y = 90 m).
+    MobilityHelper mobility;
+    mobility.SetPositionAllocator("ns3::GridPositionAllocator",
+                                  "MinX",
+                                  DoubleValue(0.0),
+                                  "MinY",
+                                  DoubleValue(0.0),
+                                  "DeltaX",
+                                  DoubleValue(5.0),
+                                  "DeltaY",
+                                  DoubleValue(10.0),
+                                  "GridWidth",
+                                  UintegerValue(3),
+                                  "LayoutType",
+                                  StringValue("RowFirst"));
+    mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+                              "Bounds",
+                              RectangleValue(Rectangle(-90, 90, -90, 90)));
+    mobility.Install(allNodes);
 
-    ///////////////////////////////////////////////////////////////////////////////
+    // • Informazioni addizionali: 
+    //     o Il packet tracer deve essere inserito esclusivamente sul Nodo 2 
+    // per ora ci teniamo tutte le catture
+    phy.EnablePcap("task1-"+std::string(useRtsCts ? "on" : "off")+"-"+std::to_string(allNodes.Get(2)->GetId())+".pcap",devices.Get(2),true,true);
 
-    if(useRtsCts){
+    //AnimationInterface anim;
+    AnimationInterface anim("wireless-task1-rts-" + std::string(useRtsCts ? "on" : "off") + ".xml");
+    if (useNetAnim)
+    {    //     o NetAnim: se abilitato, la simulazione deve poter generare un file “wireless-task1-rts-<state>.xml” 
+        //         (dove <state> è “on” se il parametro useRtsCts è vero oppure in caso contrario “off”)
+        //         e deve abilitare i metadati dei pacchetti ed il tracing dei PHY e MAC counters. 
+        anim.EnablePacketMetadata(true);
+        anim.EnableWifiPhyCounters(Seconds(0), Seconds(10));
+        anim.EnableWifiMacCounters(Seconds(0), Seconds(10));
 
-        phyAdHocMod.EnablePcap("task1-on-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
-
-    }
-
-    else{
-
-        phyAdHocMod.EnablePcap("task1-off-n2.pcap", adHocModDevices.Get(2), true, true);           //Pcap su n2 [ task(1|2)-<state>-<id_del_nodo>.<formato_file_richiesto> ]
-
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-
-    if(useNetAnim){              
-
-        if(useRtsCts){
-
-            AnimationInterface netAnimAdHocMode ("wireless-task1-rts-on.xml");
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(0), "SRV-0"); // Nodo n0 SRV
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(0), 255, 0, 0);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(1), "HOC-1"); // Nodo n1
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(1), 0, 0, 255);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(2), "HOC-2"); // Nodo n2 PCAP
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(2), 0, 0, 255);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(3), "CLI-3"); // Nodo n3 CLI
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(3), 0, 255, 0);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(4), "CLI-4"); // Nodo n4 CLI
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(4), 0, 255, 0);   // R, G, B
-        
-            netAnimAdHocMode.EnablePacketMetadata();    // Packet Metadata
-
-            netAnimAdHocMode.EnableWifiMacCounters(Seconds(0), Seconds(10)); // Tracing MAC
-            netAnimAdHocMode.EnableWifiPhyCounters(Seconds(0), Seconds(10)); // Tracing PHY
-
-            // Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-            Simulator::Stop(Seconds(12.0));
-
-            Simulator::Run();
-            Simulator::Destroy();
-
-            return 0;
-
+        //         I nodi devono essere marcati nel seguente modo: 
+        //              Rosso per il nodo con l’UDP Echo Server con descrizione “SRV-<id>“ 
+        //              Verde per i nodi con gli UDP Echo Clients con descrizione “CLI-<id>” 
+        //              Blu per gli altri nodi con descrizione “HOC-<id>” 
+        //              <id> rappresenta il Node ID del singolo nodo (e.g., “1”, “2”, etc.). 
+        for (uint32_t i = 0; i < allNodes.GetN(); i++) {
+            Ptr<Node> node = allNodes.Get(i);
+            if (i == 0) {
+                anim.UpdateNodeDescription(node, "SRV-" + std::to_string(node->GetId()));
+                anim.UpdateNodeColor(node, 255, 0, 0);
+            }
+            else if (i == 3 || i == 4) {
+                anim.UpdateNodeDescription(node, "CLI-" + std::to_string(node->GetId()));
+                anim.UpdateNodeColor(node, 0, 255, 0);
+            }
+            else {
+                anim.UpdateNodeDescription(node, "HOC-" + std::to_string(node->GetId()));
+                anim.UpdateNodeColor(node, 0, 0, 255);
+            }
         }
-
-        else{
-        
-            AnimationInterface netAnimAdHocMode ("wireless-task1-rts-off.xml");
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(0), "SRV-0"); // Nodo n0 SRV
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(0), 255, 0, 0);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(1), "HOC-1"); // Nodo n1
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(1), 0, 0, 255);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(2), "HOC-2"); // Nodo n2 PCAP
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(2), 0, 0, 255);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(3), "CLI-3"); // Nodo n3 CLI
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(3), 0, 255, 0);   // R, G, B
-
-            netAnimAdHocMode.UpdateNodeDescription(allWifiAdHocModNodes.Get(4), "CLI-4"); // Nodo n4 CLI
-            netAnimAdHocMode.UpdateNodeColor(allWifiAdHocModNodes.Get(4), 0, 255, 0);   // R, G, B
-        
-            netAnimAdHocMode.EnablePacketMetadata();    // Packet Metadata
-
-            netAnimAdHocMode.EnableWifiMacCounters(Seconds(0), Seconds(10)); // Tracing MAC
-            netAnimAdHocMode.EnableWifiPhyCounters(Seconds(0), Seconds(10)); // Tracing PHY
-
-            // Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-            Simulator::Stop(Seconds(12.0));
-
-            Simulator::Run();
-            Simulator::Destroy();
-
-            return 0;
-        }
-    
     }
+    else remove(("wireless-task1-rts-" + std::string(useRtsCts ? "on" : "off") + ".xml").c_str());
 
-    else{
+    NS_LOG_INFO("Run Simulation.");
+    Simulator::Stop(Seconds(7.0));
+    Simulator::Run();
+    Simulator::Destroy();
+    NS_LOG_INFO("Done.");
 
-        // Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-        Simulator::Stop(Seconds(12.0));
-
-        Simulator::Run();
-        Simulator::Destroy();
-
-        return 0;
-        
-    }    
-
+    return 0;
 }
